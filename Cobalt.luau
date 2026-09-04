@@ -25687,8 +25687,9 @@ for _, ScriptRef in next, ScriptsToRun do
     Defer(LoadScript, ScriptRef)
 end
 
--- === Cobalt Hide Keybind ===
+-- === Cobalt Hide Keybind (permanent) ===
 local UserInputService = game:GetService("UserInputService")
+
 local function setupHideKey()
     local Cobalt = getgenv().Cobalt
     if not Cobalt then return false end
@@ -25696,7 +25697,6 @@ local function setupHideKey()
     if not ScreenGui then return false end
     local MainFrame = ScreenGui:FindFirstChild("MainFrame")
     if not MainFrame then
-        -- fallback: search for the main window frame by name
         MainFrame = ScreenGui:FindFirstChild("MainFrame", true)
     end
     if not MainFrame then return false end
@@ -25704,7 +25704,7 @@ local function setupHideKey()
     local conn
     conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
-        if input.KeyCode == Enum.KeyCode.Home then  -- change Home to any other key
+        if input.KeyCode == Enum.KeyCode.Home then
             local visible = MainFrame.Visible
             MainFrame.Visible = not visible
             if ShowButton then
@@ -25712,17 +25712,21 @@ local function setupHideKey()
             end
         end
     end)
-    -- store connection to prevent garbage collection
     getgenv()._cobaltHideConnection = conn
     return true
 end
 
--- Wait for Cobalt to initialize
+-- Wait for Cobalt to fully initialize (unlimited attempts, 0.2s delay)
 local attempts = 0
-while not setupHideKey() and attempts < 50 do
-    task.wait(0.1)
+while not getgenv().CobaltInitialized and not setupHideKey() do
+    task.wait(0.2)
     attempts = attempts + 1
+    if attempts > 300 then  -- fallback: 60 seconds max
+        warn("Cobalt hide keybind: Cobalt not initialized after 60 seconds.")
+        break
+    end
 end
-if attempts >= 50 then
-    warn("Cobalt hide keybind: Cobalt not initialized in time.")
+if getgenv().CobaltInitialized and not getgenv()._cobaltHideConnection then
+    -- One final attempt in case setupHideKey failed but Cobalt is ready
+    setupHideKey()
 end
